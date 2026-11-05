@@ -1,0 +1,441 @@
+{
+  "version": 1,
+  "description": "Station identity reference built from the user's Soummam training dataset. Exact aliases only; it supplements generic in-file extraction.",
+  "stations": [
+    {
+      "canonical_name": "AIN ABESSA",
+      "name_keys": [
+        "ainabessa"
+      ],
+      "aliases": [
+        "AIN ABESSA"
+      ],
+      "codes": [
+        "150706"
+      ]
+    },
+    {
+      "canonical_name": "AIN ARNAT",
+      "name_keys": [
+        "ainarnat"
+      ],
+      "aliases": [
+        "AIN ARNAT"
+      ],
+      "codes": [
+        "150607"
+      ]
+    },
+    {
+      "canonical_name": "AIN BESSAM",
+      "name_keys": [
+        "ainbessam"
+      ],
+      "aliases": [
+        "AIN BESSAM"
+      ],
+      "codes": [
+        "150102"
+      ]
+    },
+    {
+      "canonical_name": "AKBOU",
+      "name_keys": [
+        "akbou"
+      ],
+      "aliases": [
+        "AKBOU"
+      ],
+      "codes": [
+        "151002"
+      ]
+    },
+    {
+      "canonical_name": "BEJAIA AEROPORT",
+      "name_keys": [
+        "bejaiaaeroport"
+      ],
+      "aliases": [
+        "BEJAIA AEROPORT"
+      ],
+      "codes": [
+        "402"
+      ]
+    },
+    {
+      "canonical_name": "BEJAIA PORT",
+      "name_keys": [
+        "bejaiaport"
+      ],
+      "aliases": [
+        "BEJAIA PORT"
+      ],
+      "codes": [
+        "401"
+      ]
+    },
+    {
+      "canonical_name": "BEN DAOUD",
+      "name_keys": [
+        "bendaoud"
+      ],
+      "aliases": [
+        "BEN DAOUD"
+      ],
+      "codes": [
+        "150402"
+      ]
+    },
+    {
+      "canonical_name": "BENI HAMMAD",
+      "name_keys": [
+        "benihammad"
+      ],
+      "aliases": [
+        "BENI HAMMAD"
+      ],
+      "codes": [
+        "150306"
+      ]
+    },
+    {
+      "canonical_name": "BENI OURTILANE",
+      "name_keys": [
+        "beniourtilane"
+      ],
+      "aliases": [
+        "BENI OURTILANE"
+      ],
+      "codes": [
+        "150708"
+      ]
+    },
+    {
+      "canonical_name": "BIR KASDALI",
+      "name_keys": [
+        "birkasdali"
+      ],
+      "aliases": [
+        "BIR KASDALI"
+      ],
+      "codes": [
+        "150707"
+      ]
+    },
+    {
+      "canonical_name": "BORDJ BOU ARRERIDJ",
+      "name_keys": [
+        "bbarreridj",
+        "bordjbouarreridj"
+      ],
+      "aliases": [
+        "B-B-ARRERIDJ",
+        "BORDJ BOU ARRERIDJ"
+      ],
+      "codes": [
+        "444"
+      ]
+    },
+    {
+      "canonical_name": "BORDJ OKHRISS",
+      "name_keys": [
+        "bordjokhriss"
+      ],
+      "aliases": [
+        "BORDJ OKHRISS"
+      ],
+      "codes": [
+        "150202"
+      ]
+    },
+    {
+      "canonical_name": "BOU BIREK",
+      "name_keys": [
+        "boubirek"
+      ],
+      "aliases": [
+        "BOU BIREK"
+      ],
+      "codes": [
+        "150703"
+      ]
+    },
+    {
+      "canonical_name": "BOUIRA",
+      "name_keys": [
+        "bouira"
+      ],
+      "aliases": [
+        "BOUIRA"
+      ],
+      "codes": [
+        "417",
+        "150105"
+      ]
+    },
+    {
+      "canonical_name": "BOUIRA COLIGNY",
+      "name_keys": [
+        "bouiracoligny"
+      ],
+      "aliases": [
+        "BOUIRA COLIGNY"
+      ],
+      "codes": [
+        "150608"
+      ]
+    },
+    {
+      "canonical_name": "Dne MAOUCHI AHMED",
+      "name_keys": [
+        "dnemaouchiahmed"
+      ],
+      "aliases": [
+        "Dne MAOUCHI AHMED"
+      ],
+      "codes": [
+        "151004"
+      ]
+    },
+    {
+      "canonical_name": "EL ESNAM SH",
+      "name_keys": [
+        "elesnamsh"
+      ],
+      "aliases": [
+        "EL ESNAM SH"
+      ],
+      "codes": [
+        "150204"
+      ]
+    },
+    {
+      "canonical_name": "EL HACHIMIA",
+      "name_keys": [
+        "elhachimia"
+      ],
+      "aliases": [
+        "EL HACHIMIA"
+      ],
+      "codes": [
+        "150103"
+      ]
+    },
+    {
+      "canonical_name": "EL KSEUR",
+      "name_keys": [
+        "elkseur"
+      ],
+      "aliases": [
+        "EL KSEUR"
+      ],
+      "codes": [
+        "151003"
+      ]
+    },
+    {
+      "canonical_name": "GUELAA",
+      "name_keys": [
+        "guelaa"
+      ],
+      "aliases": [
+        "GUELAA"
+      ],
+      "codes": [
+        "150902"
+      ]
+    },
+    {
+      "canonical_name": "GUELLAL",
+      "name_keys": [
+        "guellal"
+      ],
+      "aliases": [
+        "GUELLAL"
+      ],
+      "codes": [
+        "150603"
+      ]
+    },
+    {
+      "canonical_name": "IGHIL ALI",
+      "name_keys": [
+        "ighilali"
+      ],
+      "aliases": [
+        "IGHIL ALI"
+      ],
+      "codes": [
+        "150503"
+      ]
+    },
+    {
+      "canonical_name": "MANSOURA",
+      "name_keys": [
+        "mansoura"
+      ],
+      "aliases": [
+        "MANSOURA"
+      ],
+      "codes": [
+        "150403"
+      ]
+    },
+    {
+      "canonical_name": "MCHEDALLAH",
+      "name_keys": [
+        "mchedallah"
+      ],
+      "aliases": [
+        "MCHEDALLAH"
+      ],
+      "codes": [
+        "150301"
+      ]
+    },
+    {
+      "canonical_name": "OUED FAHAM",
+      "name_keys": [
+        "ouedfaham"
+      ],
+      "aliases": [
+        "OUED FAHAM"
+      ],
+      "codes": [
+        "150117"
+      ]
+    },
+    {
+      "canonical_name": "SEDDOUK",
+      "name_keys": [
+        "seddouk"
+      ],
+      "aliases": [
+        "SEDDOUK"
+      ],
+      "codes": [
+        "151006"
+      ]
+    },
+    {
+      "canonical_name": "SETIF AIN-SFIHA",
+      "name_keys": [
+        "setifainsfiha"
+      ],
+      "aliases": [
+        "SETIF AIN-SFIHA"
+      ],
+      "codes": [
+        "443"
+      ]
+    },
+    {
+      "canonical_name": "SIDI EMBAREK",
+      "name_keys": [
+        "sidiembarek"
+      ],
+      "aliases": [
+        "SIDI EMBAREK"
+      ],
+      "codes": [
+        "150801"
+      ]
+    },
+    {
+      "canonical_name": "SIDI YAHIA",
+      "name_keys": [
+        "sidiyahia"
+      ],
+      "aliases": [
+        "SIDI YAHIA"
+      ],
+      "codes": [
+        "150904"
+      ]
+    },
+    {
+      "canonical_name": "SOUR EL GHOZLANE",
+      "name_keys": [
+        "sourelghozlane"
+      ],
+      "aliases": [
+        "SOUR EL GHOZLANE"
+      ],
+      "codes": [
+        "150101"
+      ]
+    },
+    {
+      "canonical_name": "TAGHDIT SOUK EL KHEMIS",
+      "name_keys": [
+        "taghditsoukelkhemis"
+      ],
+      "aliases": [
+        "TAGHDIT SOUK EL KHEMIS"
+      ],
+      "codes": [
+        "150201"
+      ]
+    },
+    {
+      "canonical_name": "TENIET ENASR",
+      "name_keys": [
+        "tenietenasr"
+      ],
+      "aliases": [
+        "TENIET ENASR"
+      ],
+      "codes": [
+        "150807"
+      ]
+    },
+    {
+      "canonical_name": "TIFRA",
+      "name_keys": [
+        "tifra"
+      ],
+      "aliases": [
+        "TIFRA"
+      ],
+      "codes": [
+        "151007"
+      ]
+    },
+    {
+      "canonical_name": "TIXTER",
+      "name_keys": [
+        "tixter"
+      ],
+      "aliases": [
+        "TIXTER"
+      ],
+      "codes": [
+        "150614"
+      ]
+    },
+    {
+      "canonical_name": "TIZI NSLIB",
+      "name_keys": [
+        "tizinslib"
+      ],
+      "aliases": [
+        "TIZI NSLIB"
+      ],
+      "codes": [
+        "150504"
+      ]
+    },
+    {
+      "canonical_name": "ZEMMORAH",
+      "name_keys": [
+        "zemmorah"
+      ],
+      "aliases": [
+        "ZEMMORAH"
+      ],
+      "codes": [
+        "150802"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "project_root": ".",
+  "templates": {
+    "bilan": "",
+    "gumbel": ""
+  },
+  "last_paths": {
+    "bilan_temp": "C:/Users/DELL/Desktop/donnees 2/data_temperature/temperature",
+    "bilan_pr": "C:/Users/DELL/Desktop/donnees/soummam/data",
+    "bilan_out": "C:/Users/DELL/Desktop/projet/HydroStation_Analyzer_UI_Responsive/outputs"
+  }
+}
