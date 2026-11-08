@@ -1,0 +1,12 @@
+{
+  "project_root": ".",
+  "templates": {
+    "bilan": "",
+    "gumbel": ""
+  },
+  "last_paths": {
+    "bilan_temp": "",
+    "bilan_pr": "",
+    "bilan_out": ""
+  }
+}
