@@ -41,11 +41,22 @@ try:
         QIcon,
         QPalette,
         QPixmap,
+        QBrush,
+        QPainterPath,
+        QPen,
     )
     from PySide6.QtWidgets import (
         QAbstractItemView,
         QApplication,
         QButtonGroup,
+        QDialog,
+        QDialogButtonBox,
+        QGraphicsEllipseItem,
+        QGraphicsPathItem,
+        QGraphicsRectItem,
+        QGraphicsScene,
+        QGraphicsSimpleTextItem,
+        QGraphicsView,
         QFileDialog,
         QFrame,
         QHBoxLayout,
@@ -912,6 +923,38 @@ class ResponsiveTable(QTableWidget):
                 header_item.setToolTip(header_item.text())
 
 
+
+
+class PairingModeDialog(QDialog):
+    """Mode selector whose visual layout is maintained in Qt Designer."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Mode de traitement — Bilan hydrique")
+        self.setMinimumSize(540, 285)
+        self.resize(590, 310)
+        self.setModal(True)
+        self.mode = None
+
+        form = load_designer_ui("pairing_mode_dialog.ui", self)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(form)
+
+        automatic_button = ui_child(form, QPushButton, "AutomaticButton")
+        manual_button = ui_child(form, QPushButton, "ManualButton")
+        cancel_button = ui_child(form, QPushButton, "CancelButton")
+
+        automatic_button.clicked.connect(lambda _checked=False: self._choose("auto"))
+        manual_button.clicked.connect(lambda _checked=False: self._choose("manual"))
+        cancel_button.clicked.connect(self.reject)
+
+    def _choose(self, mode):
+        self.mode = mode
+        self.accept()
+
+
 class PlotCanvas(FigureCanvas):
     def __init__(self, width=7, height=4, dpi=100):
         self.figure = Figure(figsize=(width, height), dpi=dpi, tight_layout=False)
@@ -927,6 +970,7 @@ class BilanPage(QWidget):
         self.results = {}
         self.last_output_dir = None
         self.last_result_dir = None
+        self._manual_pairs_file = None
 
         self._recalculate_timer = QTimer(self)
         self._recalculate_timer.setSingleShot(True)
@@ -986,7 +1030,7 @@ class BilanPage(QWidget):
 
         ui_child(form, QPushButton, "BilanResetButton").clicked.connect(self.reset_table)
         ui_child(form, QPushButton, "BilanExportButton").clicked.connect(self.export_table)
-        ui_child(form, QPushButton, "BilanRunButton").clicked.connect(self.run_bilan)
+        ui_child(form, QPushButton, "BilanRunButton").clicked.connect(lambda _checked=False: self.run_bilan())
         ui_child(form, QPushButton, "BilanOpenButton").clicked.connect(
             lambda: self.open_output_folder(self.bilan_out.text())
         )
@@ -1159,62 +1203,135 @@ class BilanPage(QWidget):
         if self.bilan_process.process and self.bilan_process.process.state() != QProcess.NotRunning:
             QMessageBox.warning(self, "Traitement en cours", "Un traitement est déjà en cours.")
             return
+
+        # Validate the selected sources before opening any pairing dialog.
         if not validate_processing_paths(
-            self, [("Température", self.bilan_temp.text()), ("Précipitation", self.bilan_pr.text())],
+            self,
+            [("Température", self.bilan_temp.text()), ("Précipitation", self.bilan_pr.text())],
             self.bilan_out.text(),
         ):
             return
+
         temp_path = resolve_user_path(self.bilan_temp.text())
         pr_path = resolve_user_path(self.bilan_pr.text())
-        temp = str(temp_path)
-        pr = str(pr_path)
-        # Argument historique conserve pour ne pas casser la ligne de commande du module.
-        # Il ne pointe plus vers un fichier Excel et n'est plus utilise par le calcul.
-        template = "PYTHON_NATIVE"
-        out = str(resolve_user_path(self.bilan_out.text()))
+        out_path = resolve_user_path(self.bilan_out.text())
 
-        # Aucun changement permanent de l'interface : cette question n'apparait
-        # que lorsqu'un fichier unique est combine avec un dossier.
-        if temp_path.is_file() and pr_path.is_file():
-            pairing_mode = "manual"
-        elif temp_path.is_file() != pr_path.is_file():
-            selected_kind = "température" if temp_path.is_file() else "précipitation"
-            folder_kind = "précipitation" if temp_path.is_file() else "température"
-            answer = QMessageBox.question(
-                self,
-                "Synchronisation Température / Précipitation",
-                f"Vous avez choisi un fichier de {selected_kind} et un dossier de {folder_kind}.\n\n"
-                "Voulez-vous synchroniser par station ?\n"
-                "Le programme cherchera le même code ou nom de station dans le nom du fichier "
-                "et, s'il n'y est pas, à l'intérieur du fichier Excel.\n\n"
-                "Oui : utiliser uniquement le fichier correspondant à la même station.\n"
-                "Non : utiliser le fichier sélectionné avec TOUS les fichiers du dossier.",
-                QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel,
-                QMessageBox.Yes,
-            )
-            if answer == QMessageBox.Cancel:
-                return
-            pairing_mode = "sync" if answer == QMessageBox.Yes else "broadcast"
-        else:
-            pairing_mode = "sync"
+        # If one side contains exactly one workbook, no manual/automatic
+        # selection is needed: broadcast that unique file to the files on
+        # the opposite side and start the calculation immediately.
         try:
-            Path(out).mkdir(parents=True, exist_ok=True)
+            from modules.bilan_hydrique_parts.support import obtenir_fichiers_depuis_chemin
+
+            temperature_files = obtenir_fichiers_depuis_chemin(str(temp_path))
+            precipitation_files = obtenir_fichiers_depuis_chemin(str(pr_path))
+        except Exception as exc:
+            QMessageBox.warning(self, "Lecture des fichiers", str(exc))
+            return
+
+        if len(temperature_files) == 1 or len(precipitation_files) == 1:
+            self._start_bilan(
+                temp_path,
+                pr_path,
+                out_path,
+                pairing_mode="broadcast",
+            )
+            return
+
+        # When both sides contain several files, let the user choose
+        # automatic matching or open the manual connection workspace.
+        mode_dialog = PairingModeDialog(self)
+        if mode_dialog.exec() != QDialog.DialogCode.Accepted or not mode_dialog.mode:
+            return
+
+        if mode_dialog.mode == "auto":
+            self._start_bilan(temp_path, pr_path, out_path, pairing_mode="auto")
+            return
+
+        # Manual association window for multiple files on both sides.
+        try:
+            from modules.bilan_hydrique_parts.manual_pairing import ManualPairingDialog
+        except Exception as exc:
+            QMessageBox.warning(self, "Lecture des fichiers", str(exc))
+            return
+
+        try:
+            dialog = ManualPairingDialog(temperature_files, precipitation_files, self)
+        except Exception as exc:
+            QMessageBox.critical(self, "Interface de liaison", str(exc))
+            return
+
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        manual_pairs = [
+            {"temperature": str(temp_file), "precipitation": str(rain_file)}
+            for temp_file, rain_file in dialog.get_pairs()
+        ]
+        if not manual_pairs:
+            QMessageBox.warning(
+                self, "Aucune liaison",
+                "Aucune association manuelle n'a été enregistrée."
+            )
+            return
+
+        self._remove_manual_pairs_file()
+        pairs_path = Path(tempfile.gettempdir()) / ("hydro_manual_pairs_" + uuid.uuid4().hex + ".json")
+        try:
+            pairs_path.write_text(
+                json.dumps(manual_pairs, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
         except OSError as exc:
+            QMessageBox.warning(
+                self, "Associations manuelles",
+                f"Impossible d'enregistrer les liaisons :\n{exc}"
+            )
+            return
+
+        self._manual_pairs_file = pairs_path
+        self._start_bilan(
+            temp_path, pr_path, out_path,
+            pairing_mode="manual", manual_pairs_file=pairs_path,
+        )
+
+    def _start_bilan(self, temp_path, pr_path, out_path, pairing_mode="auto", manual_pairs_file=None):
+        if manual_pairs_file is None:
+            self._remove_manual_pairs_file()
+        try:
+            out_path.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            self._remove_manual_pairs_file()
             QMessageBox.warning(self, "Dossier sortie", str(exc))
             return
+
         self.update_config_paths()
-        self.last_output_dir = Path(out)
-        args = [str((MODULES_DIR / "bilan_hydrique.py").resolve()), temp, pr, template, out,
-                "--pairing-mode", pairing_mode]
+        self.last_output_dir = Path(out_path)
+        template = "PYTHON_NATIVE"
+        args = [
+            str((MODULES_DIR / "bilan_hydrique.py").resolve()),
+            str(temp_path), str(pr_path), template, str(out_path),
+            "--pairing-mode", pairing_mode,
+        ]
+        if manual_pairs_file is not None:
+            args.extend(["--manual-pairs-file", str(manual_pairs_file)])
         args.append("--fast" if self.bilan_no_charts.isChecked() else "--charts")
         self.bilan_process.clear()
         self.bilan_report_btn.setEnabled(False)
         self.bilan_process.run(args, cwd=BASE_DIR, on_finished=self._after_bilan_run)
 
+    def _remove_manual_pairs_file(self):
+        if self._manual_pairs_file is not None:
+            try:
+                self._manual_pairs_file.unlink(missing_ok=True)
+            except OSError:
+                pass
+            self._manual_pairs_file = None
+
     def _after_bilan_run(self, code):
         self.bilan_report_btn.setEnabled(
             self.bilan_process.report_ready
         )
+        self._remove_manual_pairs_file()
 
 
 
