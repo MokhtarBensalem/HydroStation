@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>ManualPairingForm</class>
+ <widget class="QWidget" name="ManualPairingForm">
+  <property name="minimumSize">
+   <size><width>900</width><height>0</height></size>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">QWidget#ManualPairingForm { background:#F5F7FB; }</string>
+  </property>
+  <layout class="QVBoxLayout" name="rootLayout">
+   <property name="leftMargin"><number>16</number></property>
+   <property name="topMargin"><number>10</number></property>
+   <property name="rightMargin"><number>16</number></property>
+   <property name="bottomMargin"><number>10</number></property>
+   <property name="spacing"><number>6</number></property>
+   <item>
+    <widget class="QLabel" name="TitleLabel">
+     <property name="text"><string>Association manuelle des fichiers</string></property>
+     <property name="styleSheet"><string notr="true">font-size: 16pt; font-weight: 700; color: #17385B;</string></property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="InstructionLabel">
+     <property name="text"><string>Faites défiler chaque panneau séparément avec la molette de la souris ou en glissant un doigt. Les cartes restent fixes. Faites glisser les points de connexion pour créer les liaisons.</string></property>
+     <property name="wordWrap"><bool>true</bool></property>
+     <property name="styleSheet"><string notr="true">font-size: 9pt; color: #64748B;</string></property>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="toolbarLayout">
+     <property name="spacing"><number>8</number></property>
+     <item>
+      <widget class="QPushButton" name="AddTemperatureButton">
+       <property name="minimumSize"><size><width>0</width><height>34</height></size></property>
+       <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+       <property name="text"><string>+ Ajouter des fichiers thermiques</string></property>
+       <property name="styleSheet"><string notr="true">QPushButton { background:#FFF1D6; color:#9A5B00; border:1px solid #F2B84B; border-radius:8px; padding:6px 12px; font-weight:600; }</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="AddPrecipitationButton">
+       <property name="minimumSize"><size><width>0</width><height>34</height></size></property>
+       <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+       <property name="text"><string>+ Ajouter des fichiers pluviaux</string></property>
+       <property name="styleSheet"><string notr="true">QPushButton { background:#E0ECFF; color:#1D4ED8; border:1px solid #78A6F5; border-radius:8px; padding:6px 12px; font-weight:600; }</string></property>
+      </widget>
+     </item>
+     <item><spacer name="toolbarSpacer"><property name="orientation"><enum>Qt::Orientation::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+     <item>
+      <widget class="QPushButton" name="ClearConnectionsButton">
+       <property name="minimumSize"><size><width>0</width><height>34</height></size></property>
+       <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+       <property name="text"><string>Effacer les liaisons</string></property>
+       <property name="styleSheet"><string notr="true">QPushButton { background:#F1F5F9; color:#334155; border:1px solid #CBD5E1; border-radius:8px; padding:6px 12px; }</string></property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="panelsHeaderLayout">
+     <property name="spacing"><number>20</number></property>
+     <item>
+      <widget class="QLabel" name="TemperaturePanelTitle">
+       <property name="minimumSize"><size><width>360</width><height>26</height></size></property>
+       <property name="text"><string>TEMPÉRATURE — DÉFILEMENT INDÉPENDANT</string></property>
+       <property name="styleSheet"><string notr="true">font-weight:700; color:#D97706; letter-spacing:0.5px; padding-left:8px;</string></property>
+      </widget>
+     </item>
+     <item><spacer name="panelsHeaderSpacer"><property name="orientation"><enum>Qt::Orientation::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>80</width><height>20</height></size></property></spacer></item>
+     <item>
+      <widget class="QLabel" name="PrecipitationPanelTitle">
+       <property name="minimumSize"><size><width>360</width><height>26</height></size></property>
+       <property name="text"><string>PRÉCIPITATION — DÉFILEMENT INDÉPENDANT</string></property>
+       <property name="styleSheet"><string notr="true">font-weight:700; color:#2563EB; letter-spacing:0.5px; padding-right:8px;</string></property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="workspaceLayout">
+     <property name="spacing"><number>6</number></property>
+     <item>
+      <widget class="QScrollBar" name="TemperatureScrollBar">
+       <property name="minimumSize"><size><width>16</width><height>0</height></size></property>
+       <property name="maximumSize"><size><width>20</width><height>16777215</height></size></property>
+       <property name="toolTip"><string>Faire défiler uniquement les fichiers de température</string></property>
+       <property name="orientation"><enum>Qt::Vertical</enum></property>
+       <property name="styleSheet"><string notr="true">QScrollBar:vertical { background:#E2E8F0; width:16px; margin:2px; border-radius:7px; } QScrollBar::handle:vertical { background:#F59E0B; min-height:28px; border-radius:6px; } QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height:0px; }</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QGraphicsView" name="PairingView">
+       <property name="minimumSize"><size><width>0</width><height>220</height></size></property>
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Expanding" vsizetype="Expanding"><horstretch>1</horstretch><verstretch>1</verstretch></sizepolicy>
+       </property>
+       <property name="styleSheet"><string notr="true">QGraphicsView { border:1px solid #D7DEE8; border-radius:10px; background:#F5F7FB; }</string></property>
+       <property name="frameShape"><enum>QFrame::StyledPanel</enum></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QScrollBar" name="PrecipitationScrollBar">
+       <property name="minimumSize"><size><width>16</width><height>0</height></size></property>
+       <property name="maximumSize"><size><width>20</width><height>16777215</height></size></property>
+       <property name="toolTip"><string>Faire défiler uniquement les fichiers de précipitation</string></property>
+       <property name="orientation"><enum>Qt::Vertical</enum></property>
+       <property name="styleSheet"><string notr="true">QScrollBar:vertical { background:#E2E8F0; width:16px; margin:2px; border-radius:7px; } QScrollBar::handle:vertical { background:#3B82F6; min-height:28px; border-radius:6px; } QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height:0px; }</string></property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QLabel" name="PairingStatus">
+     <property name="text"><string>0 liaison créée — chaque fichier peut avoir plusieurs liaisons.</string></property>
+     <property name="styleSheet"><string notr="true">color:#475569; font-weight:600; padding:3px;</string></property>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="footerLayout">
+     <item><spacer name="footerSpacer"><property name="orientation"><enum>Qt::Orientation::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+     <item>
+      <widget class="QPushButton" name="CancelButton">
+       <property name="minimumSize"><size><width>0</width><height>38</height></size></property>
+       <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+       <property name="text"><string>Annuler</string></property>
+       <property name="styleSheet"><string notr="true">QPushButton { background:#F1F5F9; color:#334155; border:1px solid #CBD5E1; border-radius:8px; padding:8px 18px; font-weight:600; }</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="ConfirmButton">
+       <property name="minimumSize"><size><width>0</width><height>38</height></size></property>
+       <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+       <property name="default"><bool>true</bool></property>
+       <property name="text"><string>Utiliser ces liaisons</string></property>
+       <property name="styleSheet"><string notr="true">QPushButton { background:#17385B; color:white; border:none; border-radius:8px; padding:8px 18px; font-weight:700; } QPushButton:hover { background:#24517F; }</string></property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
