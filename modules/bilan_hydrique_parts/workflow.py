@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from pathlib import Path
+import json
 
 from .support import (
     _ASSOCIATION_TRACE, annulation_demandee, chemin_sortie_unique,
@@ -8,6 +9,9 @@ from .support import (
     extraire_tp_pr_avec_annees_communes, nettoyer_chemin, nom_station_sortie,
     obtenir_fichiers_depuis_chemin, planifier_associations,
     planifier_diffusion_fichier_unique, planifier_fichier_avec_dossier,
+    associer_fichiers_temperature_precipitation_intelligent,
+    extraire_series_annuelles_depuis_fichier, ordre_mois_hydro_noms,
+    _source_correspondance_identites,
 )
 from modules.shared import (
     emit_hydro_marker, emit_station_report, clear_file_read_cache,
@@ -20,8 +24,23 @@ from .table import ecrire_bilan_hydrique_python
 
 def _metadata_station_bilan(station, identite_temperature, identite_precipitation):
     """Build a readable station identity shared by both source files."""
+    identites = [dict(identite_temperature or {}), dict(identite_precipitation or {})]
+    source_match = _source_correspondance_identites(*identites)
+    if source_match in {
+        "nom_fichier_vers_contenu", "contenu_vers_nom_fichier", "nom_fichier"
+    }:
+        # Ignore a multi-station false positive only when that file has no
+        # internal station identifiers and the other side supplies the exact
+        # matching station identity.
+        for identity in identites:
+            internal = bool(
+                identity.get("codes_logo") or identity.get("names_logo")
+                or identity.get("codes_top10") or identity.get("names_top10")
+            )
+            if identity.get("multi_station") and not internal:
+                identity["multi_station"] = False
     return resolve_station_metadata(
-        [identite_temperature, identite_precipitation], fallback_name=str(station or "")
+        identites, fallback_name=str(station or "")
     )
 
 
@@ -32,7 +51,7 @@ def _nouvelle_ligne(station, t_file, p_file):
         "annees_utilisees": "", "nb_annees": 0, "type_periode": "", "fichier_sortie": "",
         "resultat": "", "erreur": "", "identifiants_temperature": "",
         "identifiants_precipitation": "", "etape_correspondance": "", "identifiant_commun": "",
-        "type_temperature_source": "inconnu",
+        "type_temperature_source": "inconnu", "couverture_precipitation": "",
     }
     trace_key = (str(Path(t_file).resolve()), str(Path(p_file).resolve()))
     row.update(_ASSOCIATION_TRACE.get(trace_key, {}))
@@ -56,9 +75,10 @@ def main() -> None:
         help=(
             "sync=associer par station; "
             "broadcast=diffuser le fichier unique; "
-            "manual=paire fichier/fichier"
+            "manual=associations manuelles multiples fichier/fichier"
         ),
     )
+    parser.add_argument("--manual-pairs-file", default="", help="JSON des associations manuelles multiples Temperature/Precipitation")
     parser.add_argument("--cancel-file", default="", help="Chemin du signal d'annulation")
     args = parser.parse_args()
 
@@ -71,17 +91,72 @@ def main() -> None:
     temp_is_file = Path(temp_path).is_file()
     rain_is_file = Path(rain_path).is_file()
     pairing_mode = args.pairing_mode
-    if pairing_mode == "auto":
-        pairing_mode = "manual" if temp_is_file and rain_is_file else "sync"
 
     emit_hydro_marker("PHASE", "Recherche et association des stations...")
     if pairing_mode == "manual":
-        if len(fichiers_temp) != 1 or len(fichiers_pr) != 1:
-            raise ValueError("Le mode manual exige un fichier Temperature et un fichier Precipitation.")
-        pairs = [(nom_station_sortie(fichiers_temp[0], fichiers_pr[0]), fichiers_temp[0], fichiers_pr[0])]
-        skips = []
+        if args.manual_pairs_file:
+            fichier_paires = Path(args.manual_pairs_file)
+            if not fichier_paires.is_file():
+                raise ValueError("Le fichier des associations manuelles est introuvable.")
+            try:
+                donnees_paires = json.loads(fichier_paires.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as exc:
+                raise ValueError(f"Impossible de lire les associations manuelles : {exc}") from exc
+            if not isinstance(donnees_paires, list) or not donnees_paires:
+                raise ValueError("Aucune association manuelle n'a été définie.")
+
+            autorises_temp = {Path(p).resolve() for p in fichiers_temp}
+            autorises_pr = {Path(p).resolve() for p in fichiers_pr}
+            paires_lues = []
+            utilises_temp, utilises_pr = set(), set()
+            paires_uniques = set()
+            for index, element in enumerate(donnees_paires, 1):
+                if not isinstance(element, dict):
+                    raise ValueError(f"Association manuelle n°{index} invalide.")
+                t_file = Path(nettoyer_chemin(element.get("temperature", ""))).resolve()
+                p_file = Path(nettoyer_chemin(element.get("precipitation", ""))).resolve()
+                if t_file not in autorises_temp or p_file not in autorises_pr:
+                    raise ValueError(f"Association manuelle n°{index} : fichier hors de la sélection.")
+                cle_paire = (t_file, p_file)
+                if cle_paire in paires_uniques:
+                    raise ValueError(f"Association manuelle n°{index} : cette liaison existe déjà.")
+                paires_uniques.add(cle_paire)
+                # A file may participate in several different pairs. It is only
+                # counted as linked once when the ignored-file report is built.
+                utilises_temp.add(t_file)
+                utilises_pr.add(p_file)
+                station = str(element.get("station") or nom_station_sortie(t_file, p_file))
+                paires_lues.append((station, t_file, p_file))
+            pairs = paires_lues
+            skips = []
+            for fichier in sorted(autorises_temp - utilises_temp, key=lambda p: p.name.casefold()):
+                skips.append({
+                    "station": fichier.stem, "temperature": str(fichier), "precipitation": "",
+                    "erreur": "Fichier température non relié dans le panneau manuel.",
+                    "identifiants_temperature": "", "identifiants_precipitation": "",
+                    "etape_correspondance": "liaison_manuelle", "identifiant_commun": "",
+                    "type_temperature_source": "inconnu",
+                })
+            for fichier in sorted(autorises_pr - utilises_pr, key=lambda p: p.name.casefold()):
+                skips.append({
+                    "station": fichier.stem, "temperature": "", "precipitation": str(fichier),
+                    "erreur": "Fichier précipitation non relié dans le panneau manuel.",
+                    "identifiants_temperature": "", "identifiants_precipitation": "",
+                    "etape_correspondance": "liaison_manuelle", "identifiant_commun": "",
+                    "type_temperature_source": "inconnu",
+                })
+        else:
+            if len(fichiers_temp) != 1 or len(fichiers_pr) != 1:
+                raise ValueError(
+                    "Le mode manual exige un fichier d'associations ou exactement un fichier de chaque côté."
+                )
+            pairs = [(nom_station_sortie(fichiers_temp[0], fichiers_pr[0]), fichiers_temp[0], fichiers_pr[0])]
+            skips = []
     elif pairing_mode == "broadcast":
         pairs, skips = planifier_diffusion_fichier_unique(fichiers_temp, fichiers_pr)
+    elif pairing_mode == "auto" and temp_is_file and rain_is_file:
+        pairs = associer_fichiers_temperature_precipitation_intelligent(fichiers_temp, fichiers_pr)
+        skips = []
     elif temp_is_file != rain_is_file:
         pairs, skips = planifier_fichier_avec_dossier(
             fichiers_temp, fichiers_pr, fichier_est_temperature=temp_is_file
@@ -158,7 +233,29 @@ def main() -> None:
             valider_normales(t, r)
             row["annees_utilisees"] = format_years_used(years)
             row["nb_annees"] = len(years)
-            row["type_periode"] = "annees_communes_completes" if years else "normales_periode_non_verifiable"
+
+            series_temperature = extraire_series_annuelles_depuis_fichier(t_file, "temperature")
+            series_precipitation = extraire_series_annuelles_depuis_fichier(p_file, "precipitation")
+            mois_attendus = ordre_mois_hydro_noms()
+            couverture = {
+                mois: sum(1 for annee in years if mois in series_precipitation.get(int(annee), {}))
+                for mois in mois_attendus
+            }
+            row["couverture_precipitation"] = " | ".join(
+                f"{mois}:{couverture[mois]}/{len(years)}" for mois in mois_attendus
+            ) if years else "Non vérifiable"
+            annees_completes = sum(
+                1 for annee in years
+                if all(mois in series_temperature.get(int(annee), {})
+                       and mois in series_precipitation.get(int(annee), {})
+                       for mois in mois_attendus)
+            )
+            if not years:
+                row["type_periode"] = "normales_periode_non_verifiable"
+            elif annees_completes == len(years):
+                row["type_periode"] = "annees_communes_completes"
+            else:
+                row["type_periode"] = f"annees_communes_avec_donnees_manquantes ({annees_completes}/{len(years)} annees completes)"
             prepared.append({
                 "station": station, "t_file": t_file, "p_file": p_file,
                 "row": row, "metadata": metadata_station, "tp": t, "pr": r, "years": years,
@@ -210,6 +307,7 @@ def main() -> None:
         "etape_correspondance",
         "identifiant_commun",
         "type_temperature_source",
+        "couverture_precipitation",
         "annees_utilisees",
         "nb_annees",
         "type_periode",

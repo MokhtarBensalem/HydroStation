@@ -5,6 +5,7 @@ Objectif : calculer le bilan hydrique Thornthwaite directement en Python,
 sans dependance a un modele Excel externe."""
 
 import re
+import calendar
 import warnings
 import csv
 import json
@@ -738,6 +739,19 @@ def extraire_depuis_table_mensuelle_annees(df: pd.DataFrame, type_donnee: str) -
 
     return []
 def extraire_depuis_jours_mois(df: pd.DataFrame, type_donnee: str) -> List[Tuple[str, float]]:
+    """
+    Extrait les normales mensuelles depuis un tableau jours x mois.
+    Si le classeur contient plusieurs blocs annuels, chaque année est traitée
+    séparément avant de calculer la moyenne mensuelle.
+    """
+    series_annuelles = extraire_annuel_jours_mois(df, type_donnee)
+    if series_annuelles:
+        moyennes = moyenne_mensuelle_depuis_series_annuelles(series_annuelles)
+        return [(mois, float(moyennes[mois]))
+                for mois in ordre_mois_hydro_noms() if mois in moyennes]
+
+    # Compatibilité avec les anciens tableaux journaliers qui ne portent pas
+    # d'année exploitable dans chaque bloc.
     valeurs_par_mois = dict_vide_mois()
 
     for i in range(df.shape[0]):
@@ -749,10 +763,6 @@ def extraire_depuis_jours_mois(df: pd.DataFrame, type_donnee: str) -> List[Tuple
 
         col_jour = detecter_colonne_jours(df, i)
         if col_jour is None:
-            continue
-
-        # Ne pas confondre une colonne d'annees avec une colonne de jours.
-        if colonne_ressemble_aux_annees_dans_bloc(df, col_jour, i + 1, min(df.shape[0], i + 120)):
             continue
 
         lignes_jours = []
@@ -776,7 +786,9 @@ def extraire_depuis_jours_mois(df: pd.DataFrame, type_donnee: str) -> List[Tuple
             if type_donnee == "temperature":
                 valeurs_par_mois[nom_mois].append(sum(vals) / len(vals))
             else:
-                valeurs_par_mois[nom_mois].append(sum(vals))
+                # Ne pas transformer une somme de jours partiellement manquants
+                # en total mensuel apparemment complet.
+                continue
 
     resultats = []
     for mois in ordre_mois_hydro_noms():
@@ -784,6 +796,7 @@ def extraire_depuis_jours_mois(df: pd.DataFrame, type_donnee: str) -> List[Tuple
         if moy is not None:
             resultats.append((mois, moy))
     return resultats
+
 def ligne_est_moy_temperature(ligne: Sequence) -> bool:
     texte = normaliser_texte(" ".join(str(v) for v in ligne if pd.notna(v)))
     compact = normaliser_compact(texte)
@@ -2330,17 +2343,34 @@ def associer_fichiers_temperature_precipitation_intelligent(
         t, p = Path(fichiers_temp[0]), Path(fichiers_pr[0])
         id_t = extraire_identifiants_station(t, inclure_contenu=True)
         id_p = extraire_identifiants_station(p, inclure_contenu=True)
-        if id_t.get("multi_station") or id_p.get("multi_station"):
-            raise ValueError(
-                "Un des fichiers contient plusieurs stations; veuillez choisir des fichiers individuels."
-            )
         if id_t.get("type_temperature") == "minmax":
             raise ValueError(
                 "Le fichier temperature contient uniquement des valeurs MIN/MAX; "
                 "le bilan Thornthwaite exige la temperature moyenne."
             )
-        if _identites_correspondent(id_t, id_p):
+        source_match = _source_correspondance_identites(id_t, id_p)
+        identifiants_internes_t = bool(
+            id_t.get("codes_logo") or id_t.get("names_logo")
+            or id_t.get("codes_top10") or id_t.get("names_top10")
+        )
+        identifiants_internes_p = bool(
+            id_p.get("codes_logo") or id_p.get("names_logo")
+            or id_p.get("codes_top10") or id_p.get("names_top10")
+        )
+        # Un faux positif « multi-stations » ne doit pas bloquer un couple
+        # unique lorsque l'un des fichiers n'a aucun identifiant interne et
+        # que son nom de fichier correspond exactement à l'identifiant interne
+        # de l'autre fichier. Un vrai classeur multi-stations reste refusé.
+        conflit_multi_reel = (
+            (id_t.get("multi_station") and identifiants_internes_t)
+            or (id_p.get("multi_station") and identifiants_internes_p)
+        )
+        if source_match and not conflit_multi_reel:
             return [(_identite_sortie_station(t, p, id_t, id_p), t, p)]
+        if id_t.get("multi_station") or id_p.get("multi_station"):
+            raise ValueError(
+                "Un des fichiers contient plusieurs stations; veuillez choisir des fichiers individuels."
+            )
 
         has_t = bool(id_t.get("codes") or id_t.get("names"))
         has_p = bool(id_p.get("codes") or id_p.get("names"))
@@ -2496,13 +2526,22 @@ def extraire_annuel_table_mensuelle_annees(df: pd.DataFrame, type_donnee: str) -
     return resultat
 def extraire_annuel_jours_mois(df: pd.DataFrame, type_donnee: str) -> Dict[int, Dict[str, float]]:
     """
-    Blocs journaliers : une année autour du bloc + jours en lignes + mois en colonnes.
+    Extrait chaque bloc annuel d'un tableau journalier organisé en colonnes
+    de mois et lignes de jours. Les lignes « Totaux (mm) » sont prioritaires
+    pour les précipitations; à défaut, un total n'est accepté que si tous les
+    jours attendus du mois sont présents et valides.
     """
     resultat = {}
 
     for i in range(df.shape[0]):
-        colonnes_mois = identifier_colonnes_mois(df.iloc[i, :].tolist())
-        if len(colonnes_mois) < 3:
+        ligne_entete = df.iloc[i, :].tolist()
+        colonnes_mois = {
+            mois: col for col, valeur in enumerate(ligne_entete)
+            for mois in [reconnaitre_mois(valeur)] if mois is not None
+        }
+        # Les en-têtes textuels évitent de confondre des lignes de mesures
+        # contenant fortuitement les nombres 1..12 avec un en-tête de mois.
+        if len(colonnes_mois) < 6:
             continue
         if type_donnee == "temperature" and _bloc_temperature_est_extreme(df, i):
             continue
@@ -2511,41 +2550,111 @@ def extraire_annuel_jours_mois(df: pd.DataFrame, type_donnee: str) -> Dict[int, 
         if col_jour is None:
             continue
 
-        if colonne_ressemble_aux_annees_dans_bloc(df, col_jour, i + 1, min(df.shape[0], i + 120)):
-            continue
+        # Repérer la colonne qui porte les années sur toute la feuille.
+        candidats_annees = []
+        for col in range(min(10, df.shape[1])):
+            annees = []
+            for r in range(i + 1, df.shape[0]):
+                if est_annee(df.iloc[r, col]):
+                    valeur = convertir_nombre(df.iloc[r, col])
+                    if valeur is not None and float(valeur).is_integer():
+                        annees.append((r, int(valeur)))
+            if len(annees) >= 1:
+                candidats_annees.append((len(annees), col, annees))
 
-        annee = chercher_annee_autour_bloc(df, i)
-        if annee is None:
-            continue
+        blocs = []
+        if candidats_annees:
+            _, col_annee, marqueurs = max(candidats_annees, key=lambda x: (x[0], -x[1]))
+            for ligne_annee, annee in marqueurs:
+                # Après le marqueur annuel, les tableaux ONM peuvent contenir
+                # une ou plusieurs lignes vides avant le jour 1.
+                debut_jours = None
+                limite = min(df.shape[0], ligne_annee + 10)
+                for r in range(ligne_annee + 1, limite):
+                    jour = convertir_nombre(df.iloc[r, col_jour])
+                    if jour is not None and float(jour).is_integer() and int(jour) == 1:
+                        debut_jours = r
+                        break
+                    if est_annee(df.iloc[r, col_annee]):
+                        break
+                if debut_jours is None:
+                    continue
 
-        lignes_jours = []
-        for r in range(i + 1, min(df.shape[0], i + 45)):
-            if est_jour(df.iloc[r, col_jour]):
-                lignes_jours.append(r)
-            elif lignes_jours:
-                break
+                lignes_jours = []
+                dernier_jour = 0
+                for r in range(debut_jours, min(df.shape[0], debut_jours + 35)):
+                    jour = convertir_nombre(df.iloc[r, col_jour])
+                    if jour is None or not float(jour).is_integer():
+                        break
+                    jour = int(jour)
+                    if jour < 1 or jour > 31 or jour <= dernier_jour:
+                        break
+                    lignes_jours.append((r, jour))
+                    dernier_jour = jour
+                if lignes_jours:
+                    blocs.append((annee, lignes_jours))
+        else:
+            # Compatibilité avec les fichiers où l'année est inscrite juste
+            # au-dessus du bloc journalier plutôt que répétée dans une colonne.
+            annee = chercher_annee_autour_bloc(df, i)
+            if annee is not None:
+                lignes_jours = []
+                for r in range(i + 1, min(df.shape[0], i + 45)):
+                    jour = convertir_nombre(df.iloc[r, col_jour])
+                    if jour is not None and float(jour).is_integer() and 1 <= int(jour) <= 31:
+                        lignes_jours.append((r, int(jour)))
+                    elif lignes_jours:
+                        break
+                if lignes_jours:
+                    blocs.append((annee, lignes_jours))
 
-        if not lignes_jours:
-            continue
+        for annee, lignes_jours in blocs:
+            # Conserver aussi les années entièrement manquantes afin que la période
+            # commune Température/Précipitation reste fidèle aux fichiers sources.
+            resultat.setdefault(int(annee), {})
+            # Chercher le récapitulatif annuel après le dernier jour.
+            derniere_ligne = lignes_jours[-1][0]
+            ligne_total = None
+            for r in range(derniere_ligne + 1, min(df.shape[0], derniere_ligne + 12)):
+                ligne = df.iloc[r, :].tolist()
+                texte = normaliser_texte(" ".join(str(v) for v in ligne if pd.notna(v)))
+                if any(token in texte for token in ("totaux", "total", "somme", "cumul")):
+                    ligne_total = r
+                    break
+                if any(est_annee(df.iloc[r, c]) for c in range(min(10, df.shape[1]))):
+                    break
 
-        for mois, col_mois in colonnes_mois.items():
-            vals = []
-            for r in lignes_jours:
-                val = convertir_nombre_climatique(df.iloc[r, col_mois], type_donnee)
-                if val is not None:
-                    vals.append(val)
+            for mois, col_mois in colonnes_mois.items():
+                if type_donnee == "precipitation" and ligne_total is not None:
+                    valeur = convertir_nombre_climatique(df.iloc[ligne_total, col_mois], type_donnee)
+                    if valeur is not None:
+                        resultat.setdefault(int(annee), {}).setdefault(mois, float(valeur))
+                    continue
 
-            if not vals:
-                continue
+                valeurs_par_jour = {}
+                for r, jour in lignes_jours:
+                    valeur = convertir_nombre_climatique(df.iloc[r, col_mois], type_donnee)
+                    valeurs_par_jour[jour] = valeur
 
-            if type_donnee == "precipitation":
-                valeur = sum(vals)
-            else:
-                valeur = sum(vals) / len(vals)
+                valeurs_valides = [v for v in valeurs_par_jour.values() if v is not None]
+                if not valeurs_valides:
+                    continue
 
-            resultat.setdefault(annee, {})[mois] = float(valeur)
+                if type_donnee == "precipitation":
+                    numero_mois = mois_numero_depuis_nom(mois)
+                    jours_attendus = calendar.monthrange(int(annee), numero_mois)[1]
+                    if not all(valeurs_par_jour.get(jour) is not None
+                               for jour in range(1, jours_attendus + 1)):
+                        continue
+                    valeur_mensuelle = sum(valeurs_par_jour[jour]
+                                           for jour in range(1, jours_attendus + 1))
+                else:
+                    valeur_mensuelle = sum(valeurs_valides) / len(valeurs_valides)
+
+                resultat.setdefault(int(annee), {}).setdefault(mois, float(valeur_mensuelle))
 
     return resultat
+
 _DETAIL_ANNUEL_CACHE = {}
 _MENSUEL_CACHE = {}
 def _cache_key_fichier(fichier: Path, type_donnee: str):
